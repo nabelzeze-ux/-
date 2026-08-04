@@ -1,5 +1,6 @@
 // ============================================================
 // 🎡 عجلة الحظ - النسخة النهائية (تعمل بدون API)
+// X TEAM - قراءة البيانات من الرابط مباشرة
 // ============================================================
 
 class WheelOfFortune {
@@ -16,6 +17,13 @@ class WheelOfFortune {
         this.isSpinning = false;
         this.userId = null;
         this.winIndex = null;
+        
+        // ✅ الألوان الافتراضية للقطاعات
+        this.defaultColors = [
+            '#FF6B6B', '#FFA94D', '#FFD93D', '#6BCB77',
+            '#4D96FF', '#9B59B6', '#FF6B9D', '#00C9A7',
+            '#FF8A5C', '#A29BFE', '#FD79A8', '#00B894'
+        ];
         
         // ✅ بدء التشغيل فوراً
         this.init();
@@ -44,6 +52,7 @@ class WheelOfFortune {
                 const prizesArray = JSON.parse(decoded);
                 this.prizes = prizesArray.map(name => ({ name }));
                 console.log('✅ تم قراءة الجوائز:', this.prizes.length, 'جائزة');
+                console.log('📋 الجوائز:', this.prizes.map(p => p.name).join(' | '));
             } catch (e) {
                 console.error('❌ خطأ في قراءة الجوائز:', e);
                 this.setDefaultPrizes();
@@ -62,6 +71,7 @@ class WheelOfFortune {
             this.spinsSpan.textContent = '1';
             this.spinBtn.disabled = false;
             this.spinBtn.textContent = '🎡 تدوير (متبقي 1)';
+            this.spinBtn.classList.add('pulse');
             
             // ✅ الدوران بعد 1.5 ثانية
             setTimeout(() => {
@@ -71,6 +81,7 @@ class WheelOfFortune {
             this.spinsSpan.textContent = '0';
             this.spinBtn.disabled = true;
             this.spinBtn.textContent = '🚫 لا توجد لفات';
+            this.spinBtn.classList.remove('pulse');
         }
     }
     
@@ -98,28 +109,24 @@ class WheelOfFortune {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
         if (this.prizes.length === 0) {
-            ctx.fillStyle = '#333';
+            ctx.fillStyle = '#888';
             ctx.font = '24px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('لا توجد جوائز', centerX, centerY);
+            ctx.textBaseline = 'middle';
+            ctx.fillText('⚠️ لا توجد جوائز', centerX, centerY);
             return;
         }
         
         const sliceAngle = (2 * Math.PI) / this.prizes.length;
-        
-        const defaultColors = [
-            '#FF6B6B', '#FFA94D', '#FFD93D', '#6BCB77',
-            '#4D96FF', '#9B59B6', '#FF6B9D', '#00C9A7',
-            '#FF8A5C', '#A29BFE', '#FD79A8', '#00B894'
-        ];
         
         for (let i = 0; i < this.prizes.length; i++) {
             const startAngle = this.currentAngle + i * sliceAngle;
             const endAngle = startAngle + sliceAngle;
             
             const prize = this.prizes[i];
-            const color = prize.color || defaultColors[i % defaultColors.length];
+            const color = prize.color || this.defaultColors[i % this.defaultColors.length];
             
+            // رسم القطاع
             ctx.beginPath();
             ctx.moveTo(centerX, centerY);
             ctx.arc(centerX, centerY, radius, startAngle, endAngle);
@@ -130,6 +137,7 @@ class WheelOfFortune {
             ctx.lineWidth = 2;
             ctx.stroke();
             
+            // كتابة النص داخل القطاع
             ctx.save();
             ctx.translate(centerX, centerY);
             ctx.rotate(startAngle + sliceAngle / 2);
@@ -139,11 +147,12 @@ class WheelOfFortune {
             const textRadius = radius * 0.65;
             const text = prize.name || `جائزة ${i+1}`;
             
-            ctx.font = 'bold 16px Arial';
+            ctx.font = 'bold 16px "Segoe UI", Arial, sans-serif';
             ctx.fillStyle = '#fff';
             ctx.shadowColor = 'rgba(0,0,0,0.5)';
             ctx.shadowBlur = 5;
             
+            // تقسيم النص إذا كان طويلاً
             if (text.length > 12) {
                 const lines = this.splitText(text, 12);
                 const lineHeight = 20;
@@ -158,13 +167,24 @@ class WheelOfFortune {
             ctx.restore();
         }
         
+        // الدائرة المركزية
         ctx.beginPath();
-        ctx.arc(centerX, centerY, 25, 0, 2 * Math.PI);
+        ctx.arc(centerX, centerY, 28, 0, 2 * Math.PI);
         ctx.fillStyle = '#1a1a3e';
         ctx.fill();
         ctx.strokeStyle = '#FFD700';
         ctx.lineWidth = 3;
         ctx.stroke();
+        
+        // نص "X" في المنتصف
+        ctx.fillStyle = '#FFD700';
+        ctx.font = 'bold 22px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(255,215,0,0.3)';
+        ctx.shadowBlur = 10;
+        ctx.fillText('X', centerX, centerY);
+        ctx.shadowBlur = 0;
     }
     
     splitText(text, maxLength) {
@@ -174,7 +194,9 @@ class WheelOfFortune {
         
         for (const word of words) {
             if ((currentLine + word).length > maxLength) {
-                lines.push(currentLine.trim());
+                if (currentLine.trim()) {
+                    lines.push(currentLine.trim());
+                }
                 currentLine = word + ' ';
             } else {
                 currentLine += word + ' ';
@@ -193,9 +215,12 @@ class WheelOfFortune {
         
         this.isSpinning = true;
         this.spinBtn.disabled = true;
+        this.spinBtn.classList.remove('pulse');
         this.resultDiv.textContent = '🎡 جاري التدوير...';
+        this.resultDiv.style.color = '#FFD700';
         
         const sliceAngle = (2 * Math.PI) / this.prizes.length;
+        // دوران 5 لفات كاملة + الوصول إلى القطاع المطلوب
         const targetAngle = this.currentAngle + (2 * Math.PI * 5) + (winIndex * sliceAngle) + (sliceAngle / 2);
         
         this.animateSpin(targetAngle, winIndex);
@@ -203,13 +228,14 @@ class WheelOfFortune {
     
     animateSpin(targetAngle, winIndex) {
         const startAngle = this.currentAngle;
-        const duration = 4000;
+        const duration = 4500; // 4.5 ثواني
         const startTime = performance.now();
         
         const animate = (currentTime) => {
             const elapsed = currentTime - startTime;
             const progress = Math.min(elapsed / duration, 1);
             
+            // منحنى سلس (ease-out)
             const eased = 1 - Math.pow(1 - progress, 3);
             this.currentAngle = startAngle + (targetAngle - startAngle) * eased;
             
@@ -221,23 +247,49 @@ class WheelOfFortune {
                 this.currentAngle = targetAngle;
                 this.drawWheel();
                 
+                // عرض النتيجة
                 const prize = this.prizes[winIndex];
                 this.resultDiv.innerHTML = `🎉 <span class="winner-text">مبروك! ربحت ${prize.name}</span>`;
                 this.isSpinning = false;
                 this.spinBtn.disabled = true;
                 this.spinBtn.textContent = '✅ تم التدوير';
+                
+                // اهتزاز خفيف للاحتفال
+                this.resultDiv.style.animation = 'winAnimation 0.5s ease-in-out';
+                
+                console.log('🎉 الجائزة الفائزة:', prize.name);
             }
         };
         
         requestAnimationFrame(animate);
     }
+    
+    // ✅ دالة للدوران اليدوي (عند الضغط على الزر)
+    spin() {
+        if (this.isSpinning) return;
+        if (this.spinBtn.disabled) return;
+        
+        // ✅ إذا كان هناك جائزة محددة مسبقاً، استخدمها
+        if (this.winIndex !== null && this.winIndex >= 0 && this.winIndex < this.prizes.length) {
+            this.spinToPrize(this.winIndex);
+        } else {
+            // ✅ إذا لم تكن هناك جائزة محددة (لن يحدث مع الحل 5)
+            this.resultDiv.textContent = '⚠️ لا توجد جائزة محددة!';
+            this.resultDiv.style.color = '#FF6B6B';
+        }
+    }
 }
 
 // ============================================================
-// تشغيل العجلة
+// تشغيل العجلة عند تحميل الصفحة
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', () => {
     const wheel = new WheelOfFortune();
     window.wheel = wheel;
+    
+    // ✅ ربط زر التدوير بالدالة
+    document.getElementById('spinBtn').addEventListener('click', () => {
+        wheel.spin();
+    });
 });
